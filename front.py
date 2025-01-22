@@ -1,41 +1,51 @@
 import streamlit as st
+from langchain.memory import ConversationBufferMemory
+from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 
-
-MESSAGES_EXAMPLE = [
-    ("user", "Hello!"),
-    ("assistant", "Hello!"),
-    ("user", "How are you?"),
-    ("assistant", "I am fine, thank you!"),
-    ("user", "What is your name?"),
-    ("assistant", "My name is Orakulo!"),
-]
+CHAT_MEMORY = ConversationBufferMemory()
+# CHAT_MEMORY.chat_memory.add_user_message("Hello!")
+# CHAT_MEMORY.chat_memory.add_ai_message("Hi! How can I help you today?")
 
 VALID_FILE_TYPES = ["Site", "Youtube", "PDF", "CSV", "TXT"]
 
 MODELS_CONFIG = {
     "Groq": {
-        "models": ["llama-3.3-70b-versatile", "gemma2-9b-it", "mixtral-8x7b-32768"]
+        "models": ["llama-3.3-70b-versatile", "gemma2-9b-it", "mixtral-8x7b-32768"],
+        "chat": ChatGroq,
     },
-    "OpenAI": {"models": ["chatgpt-4o-latest", "gpt-4o-mini", "o1", "o1-mini"]},
+    "OpenAI": {
+        "models": ["chatgpt-4o-latest", "gpt-4o-mini", "o1", "o1-mini"],
+        "chat": ChatOpenAI,
+    },
 }
+
+
+def load_model(provider, model, api_key):
+    chat = MODELS_CONFIG[provider]["chat"](model=model, api_key=api_key)
+    return chat
 
 
 def chat_page():
     # st.title('Orakulo')
     st.header("🤖 Welcome to the Orakulo!", divider=True)
 
-    # messages = st.session_state.get('messages', [])
-    messages = st.session_state.get("messages", MESSAGES_EXAMPLE)
+    chat_model = st.session_state.get("chat", None)
 
-    for message in messages:
-        chat = st.chat_message(message[0])
-        chat.markdown(message[1])
+    # messages = st.session_state.get('messages', [])
+    chat_memory = st.session_state.get("chat_memory", CHAT_MEMORY)
+
+    for message in chat_memory.buffer_as_messages:
+        chat = st.chat_message(message.type)
+        chat.markdown(message.content)
 
     user_input = st.chat_input("Talk to me...")
 
     if user_input:
-        messages.append(("user", user_input))
-        st.session_state.messages = messages
+        chat_memory.chat_memory.add_user_message(user_input)
+        response = chat_model.invoke(user_input).content
+        chat_memory.chat_memory.add_ai_message(response)
+        st.session_state["chat_memory"] = chat_memory
         st.rerun()
 
 
@@ -60,10 +70,15 @@ def sidebar():
         provider = st.selectbox("Select the model provider", MODELS_CONFIG.keys())
         model = st.selectbox("Select the model", MODELS_CONFIG[provider]["models"])
         api_key = st.text_input(
-            "Enter the API key", value=st.session_state.get(f"api_key_{provider}", "")
+            f"Enter the API key for the {provider}",
+            value=st.session_state.get(f"api_key_{provider}", ""),
         )
 
         st.session_state[f"api_key_{provider}"] = api_key
+
+    if st.button("Start Orakulo", use_container_width=True):
+        chat = load_model(provider, model, api_key)
+        st.session_state["chat"] = chat
 
 
 def main():
