@@ -42,11 +42,17 @@ def chat_page():
     user_input = st.chat_input("Talk to me...")
 
     if user_input:
+        chat = st.chat_message('human')
+        chat.markdown(user_input)
+
+        chat = st.chat_message('ai')
+        response = chat.write_stream(chat_model.stream(user_input))
+
+        # response = chat_model.invoke(user_input).content
         chat_memory.chat_memory.add_user_message(user_input)
-        response = chat_model.invoke(user_input).content
         chat_memory.chat_memory.add_ai_message(response)
         st.session_state["chat_memory"] = chat_memory
-        st.rerun()
+        # st.rerun()
 
 
 def sidebar():
