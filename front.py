@@ -1,7 +1,11 @@
+import tempfile
+
 import streamlit as st
 from langchain.memory import ConversationBufferMemory
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
+
+import loaders
 
 CHAT_MEMORY = ConversationBufferMemory()
 # CHAT_MEMORY.chat_memory.add_user_message("Hello!")
@@ -21,7 +25,36 @@ MODELS_CONFIG = {
 }
 
 
-def load_model(provider, model, api_key):
+def load_model(provider, model, api_key, file_type, file):
+    if file_type == "Site":
+        document = loaders.load_site(file)
+
+    elif file_type == "Youtube":
+        document = loaders.load_youtube(file)
+
+    elif file_type == "PDF":
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
+            temp_file.write(file.read())
+            temp_file_path = temp_file.name
+
+        document = loaders.load_pdf(temp_file_path)
+
+    elif file_type == "CSV":
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as temp_file:
+            temp_file.write(file.read())
+            temp_file_path = temp_file.name
+
+        document = loaders.load_csv(temp_file_path)
+
+    elif file_type == "TXT":
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as temp_file:
+            temp_file.write(file.read())
+            temp_file_path = temp_file.name
+
+        document = loaders.load_txt(temp_file_path)
+
+    # print(document)
+
     chat = MODELS_CONFIG[provider]["chat"](model=model, api_key=api_key)
     return chat
 
@@ -42,10 +75,10 @@ def chat_page():
     user_input = st.chat_input("Talk to me...")
 
     if user_input:
-        chat = st.chat_message('human')
+        chat = st.chat_message("human")
         chat.markdown(user_input)
 
-        chat = st.chat_message('ai')
+        chat = st.chat_message("ai")
         response = chat.write_stream(chat_model.stream(user_input))
 
         # response = chat_model.invoke(user_input).content
@@ -83,7 +116,7 @@ def sidebar():
         st.session_state[f"api_key_{provider}"] = api_key
 
     if st.button("Start Orakulo", use_container_width=True):
-        chat = load_model(provider, model, api_key)
+        chat = load_model(provider, model, api_key, file_type, file)
         st.session_state["chat"] = chat
 
 
