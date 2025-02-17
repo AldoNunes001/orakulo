@@ -2,6 +2,7 @@ import tempfile
 
 import streamlit as st
 from langchain.memory import ConversationBufferMemory
+from langchain.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
 
@@ -25,7 +26,7 @@ MODELS_CONFIG = {
 }
 
 
-def load_model(provider, model, api_key, file_type, file):
+def load_file(file_type, file):
     if file_type == "Site":
         document = loaders.load_site(file)
 
@@ -53,10 +54,45 @@ def load_model(provider, model, api_key, file_type, file):
 
         document = loaders.load_txt(temp_file_path)
 
-    # print(document)
+    return document
+
+
+def load_model(provider, model, api_key, file_type, file):
+    document = load_file(file_type, file)
+    
+    # Adicione estas 2 linhas para escapar as chaves
+    document = document.replace("{", "{{")
+    document = document.replace("}", "}}")
+
+    system_prompt = f"""Você é um assistente amigável chamado Oráculo.
+Você possui acesso às seguintes informações vindas de um documento {file_type}:
+
+####
+{document}
+####
+
+Utilize as informações fornecidas para basear as suas respostas.
+
+Sempre que houver $ na sua saída, substitua por S.
+
+Se a informação do documento for algo como "Just a moment... Enable JavaScript and cookies to continue"
+sugira ao usuário carregar novamente o Orakulo!
+
+"""
+
+    template = ChatPromptTemplate.from_messages(
+        [
+            ("system", system_prompt),
+            ("placeholder", "{chat_history}"),
+            ("user", "{user_input}"),
+        ],
+        # template_format="f-string",
+    )
 
     chat = MODELS_CONFIG[provider]["chat"](model=model, api_key=api_key)
-    return chat
+    chat_chain = template | chat
+
+    return chat_chain
 
 
 def chat_page():
@@ -64,6 +100,10 @@ def chat_page():
     st.header("🤖 Welcome to the Orakulo!", divider=True)
 
     chat_model = st.session_state.get("chat", None)
+
+    if chat_model is None:
+        st.error("Please load a file, select a model and start the Orakulo.")
+        st.stop()
 
     # messages = st.session_state.get('messages', [])
     chat_memory = st.session_state.get("chat_memory", CHAT_MEMORY)
@@ -79,7 +119,14 @@ def chat_page():
         chat.markdown(user_input)
 
         chat = st.chat_message("ai")
-        response = chat.write_stream(chat_model.stream(user_input))
+        response = chat.write_stream(
+            chat_model.stream(
+                {
+                    "user_input": user_input,
+                    "chat_history": chat_memory.buffer_as_messages,
+                }
+            )
+        )
 
         # response = chat_model.invoke(user_input).content
         chat_memory.chat_memory.add_user_message(user_input)
@@ -121,9 +168,9 @@ def sidebar():
 
 
 def main():
-    chat_page()
     with st.sidebar:
         sidebar()
+    chat_page()
 
 
 if __name__ == "__main__":
