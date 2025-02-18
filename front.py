@@ -12,11 +12,11 @@ CHAT_MEMORY = ConversationBufferMemory()
 # CHAT_MEMORY.chat_memory.add_user_message("Hello!")
 # CHAT_MEMORY.chat_memory.add_ai_message("Hi! How can I help you today?")
 
-VALID_FILE_TYPES = ["Site", "Youtube", "PDF", "CSV", "TXT"]
+VALID_FILE_TYPES = ["TXT", "Site", "Youtube", "PDF", "CSV"]
 
 MODELS_CONFIG = {
     "Groq": {
-        "models": ["llama-3.3-70b-versatile", "gemma2-9b-it", "mixtral-8x7b-32768"],
+        "models": ["deepseek-r1-distill-qwen-32b", "deepseek-r1-distill-llama-70b", "llama-3.3-70b-versatile", "gemma2-9b-it", "mixtral-8x7b-32768"],
         "chat": ChatGroq,
     },
     "OpenAI": {
